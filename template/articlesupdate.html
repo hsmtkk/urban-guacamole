@@ -1,0 +1,13 @@
+{{define "articlesupdate"}}
+
+<html>
+ <body>
+  <form action="/auth/articles/{{.ArticleID}}/update" method="POST">
+    <input type="text" name="title" value="{{.Title}}">
+    <input type="text" name="text" value="{{.Text}}">
+    <input type="submit" value="submit">
+  </form>
+ </body>
+</html>
+
+{{end}}

@@ -1,0 +1,17 @@
+{{define "articles"}}
+
+<html>
+ <body>
+  <a href="/auth/articles/create">Create</a>
+  {{range .}}
+   <div>
+    <p><i>{{.Title}}</i></p>
+    <p>{{.Text}}</p>
+    <p><a href="/auth/articles/{{.ArticleID}}/read">Detail</a></p>
+    <p><a href="/auth/articles/{{.ArticleID}}/update">Edit</a></p>
+   </div>
+  {{end}}
+ </body>
+</html>
+
+{{end}}

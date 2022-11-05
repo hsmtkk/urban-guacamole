@@ -2,13 +2,16 @@ package main
 
 import (
 	"fmt"
+	"html/template"
 	"io"
 	"log"
-	"text/template"
 
-	"github.com/hsmtkk/urban-guacamole/controller"
-	"github.com/hsmtkk/urban-guacamole/entryrepo"
+	"github.com/gorilla/sessions"
 	"github.com/hsmtkk/urban-guacamole/env"
+	"github.com/hsmtkk/urban-guacamole/handler"
+	storearticle "github.com/hsmtkk/urban-guacamole/store/article"
+	storesession "github.com/hsmtkk/urban-guacamole/store/session"
+	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"go.uber.org/zap"
@@ -22,39 +25,41 @@ func main() {
 	defer logger.Sync()
 	sugar := logger.Sugar()
 
-	entryRepo, err := entryrepo.NewFileImpl(sugar, "entryrepo/entryrepo.json")
-	if err != nil {
-		sugar.Fatal(err)
-	}
-
 	port, err := env.GetPort()
 	if err != nil {
 		sugar.Fatal(err)
 	}
 
-	ctrl := controller.New(sugar, entryRepo)
+	articleStore := storearticle.MemoryImpl()
+	sessionStore := storesession.MemoryImpl()
 
-	// Echo instance
+	hdl := handler.New(sugar, articleStore, sessionStore)
+
 	e := echo.New()
+
 	t := &Template{
 		templates: template.Must(template.ParseGlob("template/*.html")),
 	}
 	e.Renderer = t
 
-	// Middleware
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
+	e.Use(session.Middleware(sessions.NewCookieStore([]byte("secret"))))
 
-	// Routes
-	e.GET("/", ctrl.ShowEntries)
-	e.POST("/entries", ctrl.AddEntry)
-	e.GET("/entries/new", ctrl.NewEntry)
-	e.GET("/entries/:id", ctrl.ShowEntry)
-	e.GET("/entries/:id/edit", ctrl.EditEntry)
-	e.POST("/entries/:id/update", ctrl.UpdateEntry)
-	e.POST("/entries/:id/delete", ctrl.DeleteEntry)
+	e.GET("/login", hdl.GetLogin)
+	e.POST("/login", hdl.PostLogin)
 
-	// Start server
+	loginRequiredGroup := e.Group("/auth", hdl.LoginRequired)
+
+	loginRequiredGroup.GET("/logout", hdl.GetLogout)
+	loginRequiredGroup.GET("/articles", hdl.GetArticles)
+	loginRequiredGroup.GET("/articles/create", hdl.GetArticlesCreate)
+	loginRequiredGroup.POST("/articles/create", hdl.PostArticlesCreate)
+	loginRequiredGroup.GET("/articles/:id/read", hdl.GetArticlesRead)
+	loginRequiredGroup.GET("/articles/:id/update", hdl.GetArticlesUpdate)
+	loginRequiredGroup.POST("/articles/:id/update", hdl.PostArticlesUpdate)
+	loginRequiredGroup.POST("/articles/:id/delete", hdl.PostArticlesDelete)
+
 	e.Logger.Fatal(e.Start(fmt.Sprintf(":%d", port)))
 }
 
